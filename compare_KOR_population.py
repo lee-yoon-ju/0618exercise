@@ -8,7 +8,9 @@ def load_data():
     try:
         df = pd.read_csv("202505_202505_연령별인구현황_월간.csv", encoding="euc-kr")
         df.fillna(0, inplace=True)
+        # 숫자 변환 및 쉼표 제거
         for col in df.columns[3:]:
+            df[col] = df[col].astype(str).str.replace(",", "", regex=False)
             df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
         return df
     except Exception as e:
@@ -29,29 +31,29 @@ if not df.empty:
         st.warning("⚠️ 정확히 2개의 지역을 선택해주세요.")
         st.stop()
 
-    # 연령 열 정리
+    # 연령 컬럼 파악
     age_columns = df.columns[3:]
     age_dict = {}
+
     for col in age_columns:
         try:
-            # 열 이름이 예: '2025년05월_계_4세'
-            if "세" in col:
-                age_part = col.split("_")[-1]
-                if "이상" in age_part:
-                    age = 100
-                else:
-                    age = int(age_part.replace("세", ""))
-                age_dict[age] = col
+            age_token = col.split("_")[-1]
+            if "이상" in age_token:
+                age = 100
+            else:
+                age = int(age_token.replace("세", "").strip())
+            age_dict[age] = col
         except:
             continue
 
+    # 상대도수 계산
     def get_relative_freq(region_name):
         region_data = df[df[region_col] == region_name]
         grouped = {}
 
         for age in range(0, 105, 5):
             label = f"{age}~{age+4}세" if age < 100 else "100세 이상"
-            cols = [age_dict[a] for a in range(age, age + 5) if a in age_dict]
+            cols = [age_dict[a] for a in range(age, age+5) if a in age_dict]
             if age >= 100:
                 cols = [v for k, v in age_dict.items() if k >= 100]
             total = region_data[cols].sum(axis=1).values[0] if cols else 0
@@ -60,11 +62,11 @@ if not df.empty:
         total_population = sum(grouped.values())
         return {k: v / total_population * 100 for k, v in grouped.items()} if total_population > 0 else {k: 0 for k in grouped}
 
-    # 상대도수 계산
+    # 데이터 계산
     rel_freq_1 = get_relative_freq(selected_regions[0])
     rel_freq_2 = get_relative_freq(selected_regions[1])
 
-    # 그래프 그리기
+    # 그래프 시각화
     labels = list(rel_freq_1.keys())
     values1 = list(rel_freq_1.values())
     values2 = list(rel_freq_2.values())
