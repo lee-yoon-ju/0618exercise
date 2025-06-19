@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 # 데이터 불러오기
 @st.cache_data
 def load_data():
-    df = pd.read_csv("202505_202505_연령별인구현황_월간.csv", encoding="euc-kr")
+    df = pd.read_csv("202505_202505_연령별인구현황_월간.csv", encoding="euc-kr", dtype=str)
     return df
 
 df = load_data()
@@ -25,6 +25,7 @@ if len(selected_regions) != 2:
 # 연령대 컬럼 파악
 age_columns = df.columns[1:]
 age_dict = {}
+
 for col in age_columns:
     try:
         if '이상' in col:
@@ -38,18 +39,25 @@ for col in age_columns:
 # 5세 단위 상대도수 계산 함수
 def get_relative_freq(region_name):
     region_data = df[df[region_col] == region_name]
-    grouped = {}
 
+    grouped = {}
     for age in range(0, 105, 5):
         label = f"{age}~{age+4}세" if age < 100 else "100세 이상"
         cols = [age_dict[a] for a in range(age, age+5) if a in age_dict]
         if age >= 100:
             cols = [v for k, v in age_dict.items() if k >= 100]
-        total = region_data[cols].sum(axis=1).values[0]
+
+        # 안전한 연산을 위해 숫자로 변환
+        total = region_data[cols].astype(float).sum(axis=1).values[0] if len(cols) > 0 else 0
         grouped[label] = total
 
     # 각 연령대 인구 / 해당 지역 전체 인구 × 100
     total_population = sum(grouped.values())
+
+    # 0으로 나눌 수 없으므로 예외 처리
+    if total_population == 0:
+        return {k: 0 for k in grouped.keys()}
+
     relative_freq = {k: v / total_population * 100 for k, v in grouped.items()}
     return relative_freq
 
